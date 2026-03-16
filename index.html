@@ -415,7 +415,8 @@
                 <div style="margin-top: 20px;">
                     <label style="color: #333; margin-bottom: 10px; display: block;">Mark Players as Drafted by Others:</label>
                     <div class="control-group">
-                        <input type="text" id="draftedPlayerInput" placeholder="Player name (e.g., AJ Dybantsa)...">
+                        <input type="text" id="draftedPlayerInput" placeholder="Search player..." autocomplete="off">
+                        <div id="draftedSuggestions" style="position: absolute; background: white; border: 1px solid #ddd; border-radius: 6px; max-height: 200px; overflow-y: auto; width: 280px; margin-top: 2px; display: none; z-index: 1000;"></div>
                         <button onclick="markPlayerDrafted()" style="margin-top: 8px;">Mark as Drafted</button>
                     </div>
                 </div>
@@ -605,19 +606,78 @@
             updateUI();
         }
 
-        // Mark player as drafted by others
+        // Mark player as drafted by others with autocomplete
         function markPlayerDrafted() {
             const input = document.getElementById('draftedPlayerInput');
             const playerName = input.value.trim();
 
             if (!playerName) return;
 
-            const player = allPlayers.find(p => p.player.toLowerCase().includes(playerName.toLowerCase()));
+            const player = allPlayers.find(p => p.player.toLowerCase() === playerName.toLowerCase());
             if (player && !yourTeam.find(p => p.player === player.player)) {
                 draftedPlayers.add(player.player);
                 input.value = '';
+                document.getElementById('draftedSuggestions').style.display = 'none';
                 updateUI();
             }
+        }
+
+        // Autocomplete suggestions for drafted players
+        document.addEventListener('DOMContentLoaded', () => {
+            const input = document.getElementById('draftedPlayerInput');
+            const suggestionsBox = document.getElementById('draftedSuggestions');
+
+            input.addEventListener('input', (e) => {
+                const searchTerm = e.target.value.toLowerCase();
+                
+                if (searchTerm.length < 1) {
+                    suggestionsBox.style.display = 'none';
+                    return;
+                }
+
+                const matches = allPlayers.filter(p => 
+                    !draftedPlayers.has(p.player) &&
+                    !yourTeam.find(t => t.player === p.player) &&
+                    p.player.toLowerCase().includes(searchTerm)
+                ).slice(0, 8);
+
+                if (matches.length === 0) {
+                    suggestionsBox.style.display = 'none';
+                    return;
+                }
+
+                suggestionsBox.innerHTML = matches.map(p => `
+                    <div style="padding: 10px; cursor: pointer; border-bottom: 1px solid #eee; hover-effect;" onclick="selectDraftedPlayer('${p.player}')">
+                        <strong>${p.player}</strong><br>
+                        <span style="font-size: 0.85em; color: #666;">${p.team} (${p.seed}-seed) | ${p.ppg} PPG</span>
+                    </div>
+                `).join('');
+
+                suggestionsBox.style.display = 'block';
+
+                // Add hover effect styling
+                const items = suggestionsBox.querySelectorAll('[onclick]');
+                items.forEach(item => {
+                    item.addEventListener('mouseover', () => {
+                        item.style.background = '#f0f7ff';
+                    });
+                    item.addEventListener('mouseout', () => {
+                        item.style.background = 'white';
+                    });
+                });
+            });
+
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    markPlayerDrafted();
+                }
+            });
+        });
+
+        // Select player from autocomplete dropdown
+        function selectDraftedPlayer(playerName) {
+            document.getElementById('draftedPlayerInput').value = playerName;
+            document.getElementById('draftedSuggestions').style.display = 'none';
         }
 
         // Update all UI
@@ -712,6 +772,13 @@
             document.getElementById('searchInput').addEventListener('input', (e) => {
                 searchTerm = e.target.value;
                 updateUI();
+            });
+
+            // Close suggestions on outside click
+            document.addEventListener('click', (e) => {
+                if (!e.target.matches('#draftedPlayerInput')) {
+                    document.getElementById('draftedSuggestions').style.display = 'none';
+                }
             });
 
             updateUI();
