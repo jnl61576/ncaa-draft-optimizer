@@ -496,9 +496,19 @@
                 </div>
 
                 <div style="margin-top: 20px; padding-top: 15px; border-top: 2px solid #ddd;">
-                    <h3 style="color: #2a5298; margin-bottom: 10px; font-size: 1em;">Marked Players</h3>
-                    <div id="markedList" style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 6px; padding: 10px; margin-bottom: 10px; max-height: 120px; overflow-y: auto; font-size: 0.9em;">
-                        <p style="color: #999; text-align: center;">No players marked yet</p>
+                    <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                        <div style="flex: 1;">
+                            <h3 style="color: #2a5298; margin-bottom: 10px; font-size: 1em;">Marked Players</h3>
+                            <div id="markedList" style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 6px; padding: 10px; max-height: 120px; overflow-y: auto; font-size: 0.9em;">
+                                <p style="color: #999; text-align: center;">No players marked yet</p>
+                            </div>
+                        </div>
+                        <div style="flex: 1;">
+                            <h3 style="color: #9c27b0; margin-bottom: 10px; font-size: 1em;">Hidden Players</h3>
+                            <div id="hiddenList" style="background: #f3e5f5; border: 1px solid #9c27b0; border-radius: 6px; padding: 10px; max-height: 120px; overflow-y: auto; font-size: 0.9em;">
+                                <p style="color: #999; text-align: center;">No players hidden yet</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -743,6 +753,7 @@
         function unhidePlayer(playerName) {
             hiddenPlayers.delete(playerName);
             updateUI();
+            saveState();
         }
 
         // Autocomplete suggestions for drafted players
@@ -815,6 +826,28 @@
                 `;
             }).join('');
             markedList.innerHTML = html;
+            saveState();
+        }
+
+        // Update hidden players display
+        function updateHiddenList() {
+            const hiddenList = document.getElementById('hiddenList');
+            if (hiddenPlayers.size === 0) {
+                hiddenList.innerHTML = '<p style="color: #999; text-align: center;">No players hidden yet</p>';
+                return;
+            }
+
+            const html = Array.from(hiddenPlayers).map(playerName => {
+                const player = allPlayers.find(p => p.player === playerName);
+                return `
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px; background: white; margin-bottom: 4px; border-radius: 4px;">
+                        <span><strong>${playerName}</strong> (${player.team})</span>
+                        <button onclick="unhidePlayer('${playerName}')" style="background: #9c27b0; padding: 3px 8px; font-size: 0.75em; color: white; border: none; border-radius: 3px; cursor: pointer;">Unhide</button>
+                    </div>
+                `;
+            }).join('');
+            hiddenList.innerHTML = html;
+            saveState();
         }
 
         // Update all UI
@@ -824,6 +857,7 @@
             renderYourTeam();
             updateStats();
             updateMarkedList();
+            updateHiddenList();
         }
 
         // Render your team
@@ -886,12 +920,34 @@
             a.click();
         }
 
+        // Save state to localStorage
+        function saveState() {
+            const state = {
+                yourTeam: yourTeam,
+                draftedPlayers: Array.from(draftedPlayers),
+                hiddenPlayers: Array.from(hiddenPlayers)
+            };
+            localStorage.setItem('ncaaDraftState', JSON.stringify(state));
+        }
+
+        // Load state from localStorage
+        function loadState() {
+            const saved = localStorage.getItem('ncaaDraftState');
+            if (saved) {
+                const state = JSON.parse(saved);
+                yourTeam = state.yourTeam || [];
+                draftedPlayers = new Set(state.draftedPlayers || []);
+                hiddenPlayers = new Set(state.hiddenPlayers || []);
+            }
+        }
+
         // Reset draft
         function resetDraft() {
             if (confirm('Reset entire draft?')) {
                 yourTeam = [];
                 draftedPlayers = new Set();
-                currentRound = 1;
+                hiddenPlayers = new Set();
+                localStorage.removeItem('ncaaDraftState');
                 updateUI();
             }
         }
@@ -919,6 +975,7 @@
                 }
             });
 
+            loadState();
             updateUI();
         });
     </script>
